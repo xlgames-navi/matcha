@@ -54,8 +54,6 @@ defmodule Matcha do
   end
 
   defp do_spec(caller, context, clauses) do
-    require Rewrite
-
     Enum.each(clauses, fn
       {:->, _, _} ->
         :ok

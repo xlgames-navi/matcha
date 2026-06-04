@@ -716,10 +716,6 @@ defmodule Matcha.Rewrite do
     var
   end
 
-  defp do_rewrite_expr_literals({name, meta, arguments} = call, rewrite) when is_call(call) do
-    {name, meta, do_rewrite_expr_literals(arguments, rewrite), rewrite}
-  end
-
   defp do_rewrite_expr_literals(ast, _rewrite) when is_literal(ast) do
     ast
   end

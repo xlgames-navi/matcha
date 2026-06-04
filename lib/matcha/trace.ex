@@ -5,8 +5,6 @@ defmodule Matcha.Trace do
   About tracing.
   """
 
-  require Matcha
-
   alias __MODULE__
 
   alias Matcha.Context
@@ -333,12 +331,7 @@ defmodule Matcha.Trace do
     |> Enum.each(fn {recon_arguments, recon_pids} ->
       recon_opts = [{:pid, recon_pids} | recon_opts]
 
-      recon_opts =
-        if recon_formatter do
-          [{:formatter, recon_formatter} | recon_opts]
-        else
-          recon_opts
-        end
+      recon_opts = [{:formatter, recon_formatter} | recon_opts]
 
       :recon_trace.calls({recon_module, recon_function, recon_arguments}, recon_limit, recon_opts)
     end)
