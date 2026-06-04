@@ -86,9 +86,11 @@ defmodule Matcha.Rewrite do
         import Kernel,
           except: [
             and: 2,
+            elem: 2,
             is_boolean: 1,
             is_exception: 1,
             is_exception: 2,
+            is_map_key: 2,
             is_struct: 1,
             is_struct: 2,
             or: 2
@@ -119,36 +121,41 @@ defmodule Matcha.Rewrite do
 
   defp handle_in_operator!(clause, rewrite) do
     Macro.postwalk(clause, fn
-      {:in, _, [left, right]} = ast ->
+      {:in, _, [left, right]} ->
         cond do
-          # Expand Kernel list-generating sigil literals in guard contexts specially
+          # Expand Kernel list-generating sigil literals then build the guard-compatible
+          # orelse/andalso AST directly. Elixir 1.20 changed body-context `in` to emit
+          # :lists.member/2; guard-context `in` expansion (orelse/andalso chain) is
+          # stable across all supported versions (1.10+). We build the AST manually to
+          # avoid calling perform_expansion with unbound fn-local variables.
           match?({:sigil_C, _, _}, right) ->
             sigil_expansion = perform_expansion(right, %{rewrite.env | context: :guard})
-            {:in, [], [left, sigil_expansion]}
+            expand_in_list_to_erlang_ast(left, sigil_expansion)
 
           match?({:sigil_c, _, _}, right) ->
             sigil_expansion = perform_expansion(right, %{rewrite.env | context: :guard})
-            {:in, [], [left, sigil_expansion]}
+            expand_in_list_to_erlang_ast(left, sigil_expansion)
 
           match?({:sigil_W, _, _}, right) ->
             sigil_expansion = perform_expansion(right, %{rewrite.env | context: :guard})
-            {:in, [], [left, sigil_expansion]}
+            expand_in_list_to_erlang_ast(left, sigil_expansion)
 
           match?({:sigil_w, _, _}, right) ->
             sigil_expansion = perform_expansion(right, %{rewrite.env | context: :guard})
-            {:in, [], [left, sigil_expansion]}
+            expand_in_list_to_erlang_ast(left, sigil_expansion)
 
-          # Allow literal lists
           is_list(right) and Macro.quoted_literal?(right) ->
-            ast
+            expand_in_list_to_erlang_ast(left, right)
 
           # Literal range syntax
           match?({:.., _, [_left, _right | []]}, right) ->
-            ast
+            {:.., _, [low, high]} = right
+            expand_in_range_to_erlang_ast(left, low, high)
 
           # Literal range with step syntax
           match?({:..//, _, [_left, _right, _step | []]}, right) ->
-            ast
+            {:"..//", _, [low, high, step]} = right
+            expand_in_stepped_range_to_erlang_ast(left, low, high, step)
 
           true ->
             raise ArgumentError,
@@ -166,6 +173,49 @@ defmodule Matcha.Rewrite do
       ast ->
         ast
     end)
+  end
+
+  defp erlang_ast_call(function, args) do
+    {{:., [], [:erlang, function]}, [], args}
+  end
+
+  defp expand_in_list_to_erlang_ast(_left, []) do
+    false
+  end
+
+  defp expand_in_list_to_erlang_ast(left, [elem | rest]) do
+    Enum.reduce(rest, erlang_ast_call(:"=:=", [left, elem]), fn elem, acc ->
+      erlang_ast_call(:orelse, [acc, erlang_ast_call(:"=:=", [left, elem])])
+    end)
+  end
+
+  defp expand_in_range_to_erlang_ast(left, low, high) do
+    erlang_ast_call(:andalso, [
+      erlang_ast_call(:is_integer, [left]),
+      erlang_ast_call(:andalso, [
+        erlang_ast_call(:>=, [left, low]),
+        erlang_ast_call(:"=<", [left, high])
+      ])
+    ])
+  end
+
+  defp expand_in_stepped_range_to_erlang_ast(left, low, high, step) do
+    erlang_ast_call(:andalso, [
+      erlang_ast_call(:andalso, [
+        erlang_ast_call(:is_integer, [left]),
+        erlang_ast_call(:andalso, [
+          erlang_ast_call(:>=, [left, low]),
+          erlang_ast_call(:"=<", [left, high])
+        ])
+      ]),
+      erlang_ast_call(:"=:=", [
+        erlang_ast_call(:rem, [
+          erlang_ast_call(:-, [left, low]),
+          step
+        ]),
+        0
+      ])
+    ])
   end
 
   defp normalize_clause_ast({:->, _, [[head], body]}, _rewrite) do

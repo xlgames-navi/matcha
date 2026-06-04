@@ -137,7 +137,12 @@ defmodule Matcha.Rewrite.Guards.UnitTest do
           x when x == -1 -> x
         end
 
-      assert Spec.source(spec) == [{:"$1", [{:==, :"$1", {:-, 1}}], [:"$1"]}]
+      # Elixir ≤1.19: -1 in AST is a unary minus call → {:-, 1} in match spec
+      # Elixir 1.20+: -1 is constant-folded to the integer literal
+      assert Spec.source(spec) in [
+               [{:"$1", [{:==, :"$1", {:-, 1}}], [:"$1"]}],
+               [{:"$1", [{:==, :"$1", -1}], [:"$1"]}]
+             ]
     end
 
     test "-/2" do
@@ -191,7 +196,12 @@ defmodule Matcha.Rewrite.Guards.UnitTest do
           x when x == +1 -> x
         end
 
-      assert Spec.source(spec) == [{:"$1", [{:==, :"$1", {:+, 1}}], [:"$1"]}]
+      # Elixir ≤1.19: +1 in AST is a unary plus call → {:+, 1} in match spec
+      # Elixir 1.20+: +1 is constant-folded to the integer literal
+      assert Spec.source(spec) in [
+               [{:"$1", [{:==, :"$1", {:+, 1}}], [:"$1"]}],
+               [{:"$1", [{:==, :"$1", 1}], [:"$1"]}]
+             ]
     end
 
     test "+/2" do

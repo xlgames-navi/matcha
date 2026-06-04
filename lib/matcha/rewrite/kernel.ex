@@ -9,9 +9,11 @@ defmodule Matcha.Rewrite.Kernel do
   import Kernel,
     except: [
       and: 2,
+      elem: 2,
       is_boolean: 1,
       is_exception: 1,
       is_exception: 2,
+      is_map_key: 2,
       is_struct: 1,
       is_struct: 2,
       or: 2
@@ -119,6 +121,34 @@ defmodule Matcha.Rewrite.Kernel do
   defmacro left or right do
     quote do
       :erlang.orelse(unquote(left), unquote(right))
+    end
+  end
+
+  @doc """
+  Re-implements `Kernel.elem/2`.
+
+  Elixir 1.20 stopped inlining `elem/2` to `:erlang.element/2` during macro
+  expansion in body contexts. We inline it explicitly here so match specs can
+  use it regardless of Elixir version.
+  """
+  defmacro elem(tuple, index) when is_integer(index) do
+    erlang_index = index + 1
+    quote do
+      :erlang.element(unquote(erlang_index), unquote(tuple))
+    end
+  end
+
+  @doc """
+  Re-implements `Kernel.is_map_key/2`.
+
+  Elixir 1.20 stopped inlining `is_map_key/2` to `:erlang.is_map_key/2` during
+  macro expansion in body contexts. We inline it explicitly here, also swapping
+  the argument order: Elixir's `is_map_key(map, key)` vs Erlang's
+  `:erlang.is_map_key(key, map)`.
+  """
+  defmacro is_map_key(map, key) do
+    quote do
+      :erlang.is_map_key(unquote(key), unquote(map))
     end
   end
 end

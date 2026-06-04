@@ -131,9 +131,11 @@ defmodule TestHelpers do
   end
 
   def test_module_name(
-        %{case: test_case, describe: describe, test: test},
+        %{describe: describe, test: test} = context,
         description \\ nil
       ) do
+    # :module (Elixir 1.20+) replaces the legacy :case key in ExUnit context
+    test_case = Map.get(context, :module) || Map.get(context, :case)
     module_name = [Test, test_case]
 
     module_name =
