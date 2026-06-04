@@ -106,7 +106,7 @@ defmodule Matcha.Rewrite do
 
     {_, clauses} =
       Macro.prewalk(expansion, nil, fn
-        {:fn, [], clauses}, nil -> {nil, clauses}
+        {:fn, _meta, clauses}, nil -> {nil, clauses}
         other, clauses -> {other, clauses}
       end)
 
@@ -147,7 +147,7 @@ defmodule Matcha.Rewrite do
             ast
 
           # Literal range with step syntax
-          match?({:"..//", _, [_left, _right, _step | []]}, right) ->
+          match?({:..//, _, [_left, _right, _step | []]}, right) ->
             ast
 
           true ->
