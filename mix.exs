@@ -33,7 +33,6 @@ defmodule Matcha.MixProject do
       docs: docs(),
       dialyzer: dialyzer(),
       package: package(),
-      preferred_cli_env: preferred_cli_env(),
       test_coverage: test_coverage()
     ]
 
@@ -42,6 +41,8 @@ defmodule Matcha.MixProject do
       mod: {Matcha.Application, []},
       extra_applications: extra_applications(Mix.env())
     ]
+
+  def cli, do: preferred_cli_env()
 
   defp extra_applications(:prod), do: []
 
@@ -132,7 +133,7 @@ defmodule Matcha.MixProject do
       # Dev tooling
       {:benchee, "~> 1.0", only: @dev_envs, runtime: false},
       {:benchee_html, "~> 1.0", only: @dev_envs, runtime: false},
-      {:credo, "~> 1.6", only: @dev_envs, runtime: false},
+      {:credo, "~> 1.7", only: @dev_envs, runtime: false},
       {:dialyxir, "~> 1.0", only: @dev_envs, runtime: false},
       {:doctor, "~> 0.21", only: @dev_envs, runtime: false},
       {:ex_doc, "~> 0.29", only: @dev_envs, runtime: false},
